@@ -1,4 +1,5 @@
-fibo: code/fibo.o code/main.o
+fibo: 
+	make -C code
 	gcc -o fibo code/fibo.o code/main.o
 
 clean:

@@ -1,5 +1,6 @@
 #include <fibo.h>
 
+
 int fibo(int n)
 {
 	int a=1,b=1,c,i;
