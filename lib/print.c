@@ -19,6 +19,7 @@
 extern int PrintChar(char *, char, int, int);
 extern int PrintString(char *, char *, int, int);
 extern int PrintNum(char *, unsigned long, int, int, int, int, char, int);
+int IsNeg(long int, int);
 
 /* private variable */
 static const char theFatalMsg[] = "fatal error in lp_Print!";
@@ -67,25 +68,62 @@ void lp_Print(void (*output)(void *, char *, int),
 
     for (;;)
     {
-
         /* Part1: your code here */
-
+        if (*fmt == '\0') // check end
+            break;
+        else if (*fmt != '%')
         {
-            /* scan for the next '%' */
-            /* flush the string found so far */
-
-            /* check "are we hitting the end?" */
+            OUTPUT(arg, fmt, 1);
+            fmt++;
+            continue;
         }
 
         /* we found a '%' */
-
-        /* check for long */
-
-        /* check for other prefixes */
-
-        /* check format flag */
-
+        /* format:  %[flags][width][.precision][length]specifier */
+        fmt++;
+        longFlag = 0;
         negFlag = 0;
+        width = 0;
+        prec = 0;
+        ladjust = 0;
+        padc = ' ';
+        length = 0;
+        // check for flags
+        if (*fmt == '-')
+        {
+            ladjust = 1;
+            fmt++;
+        }
+        else if (*fmt == '0')
+        {
+            padc = *fmt;
+            fmt++;
+        }
+        // check for width
+        while (IsDigit(*fmt))
+        {
+            width = (width << 3) + (width << 1) + Ctod(*fmt);
+            fmt++;
+        }
+        // check for .precision
+        if (*fmt == '.')
+        {
+            fmt++;
+            while (IsDigit(*fmt))
+            {
+                prec = (prec << 3) + (prec << 1) + Ctod(*fmt);
+                fmt++;
+            }
+        }
+        // check for length
+        if (*fmt == 'l')
+        {
+            longFlag = 1;
+            fmt++;
+        }
+        // finish sub-specifier
+
+        // check for specifier
         switch (*fmt)
         {
         case 'b':
@@ -117,7 +155,9 @@ void lp_Print(void (*output)(void *, char *, int),
                         Refer to other part (case 'b',case 'o' etc.) and func PrintNum to complete this part.
                         Think the difference between case 'd' and others. (hint: negFlag).
                 */
-
+            negFlag = IsNeg(num, longFlag);
+            length = PrintNum(buf, num, 10, negFlag, width, ladjust, padc, 0);
+            OUTPUT(arg, buf, length);
             break;
 
         case 'o':
@@ -338,4 +378,20 @@ int PrintNum(char *buf, unsigned long u, int base, int negFlag,
 
     /* adjust the string pointer */
     return length;
+}
+
+int IsNeg(long int num, int longFlag)
+{
+    if (longFlag)
+    {
+        if (num < 0)
+            return 1;
+        else
+            return 0;
+    }
+    int temp = (int)num;
+    if (temp < 0)
+        return 1;
+    else
+        return 0;
 }
