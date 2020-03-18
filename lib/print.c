@@ -156,7 +156,15 @@ void lp_Print(void (*output)(void *, char *, int),
                         Think the difference between case 'd' and others. (hint: negFlag).
                 */
             negFlag = IsNeg(num, longFlag);
-            length = PrintNum(buf, num, 10, negFlag, width, ladjust, padc, 0);
+           
+	if(!negFlag)
+                length = PrintNum(buf, num, 10, negFlag, width, ladjust, padc, 0);
+            else if(longFlag)
+                length = PrintNum(buf, (unsigned long)(-((long)num)), 10, negFlag, width, ladjust, padc, 0);
+            else
+                length = PrintNum(buf, (unsigned long)(-((int)num)), 10, negFlag, width, ladjust, padc, 0);
+
+
             OUTPUT(arg, buf, length);
             break;
 
