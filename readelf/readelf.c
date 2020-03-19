@@ -40,9 +40,11 @@ int is_elf_format(u_char *binary)
  *   If success, output address of every section in ELF.
  */
 
-/*
-    Exercise 1.2. Please complete func "readelf". 
-*/
+unsigned int reversal(unsigned int x)
+{
+        return (x << 24) | (x << 16 >> 24 << 16) | (x << 8 >> 24 << 8) | (x >> 24);
+}
+
 int readelf(u_char *binary, int size)
 {
         Elf32_Ehdr *ehdr = (Elf32_Ehdr *)binary;
@@ -54,20 +56,27 @@ int readelf(u_char *binary, int size)
                 return 0;
         }
 
-        // get section table addr, section header number and section header size.
         int Nr;
 
-        Elf32_Shdr *shdr = (Elf32_Shdr *)(binary + ehdr->e_shoff);
+        Elf32_Off off = ehdr->e_phoff;
+        unsigned char type = ehdr->e_ident[5];
+        if (type == 2)
+                off = reversal(off);
+        Elf32_Phdr *phdr = (Elf32_Phdr *)(binary + off);
+        Elf32_Half phnum = ehdr->e_phnum;
+        if (type == 2)
+                phnum = (phnum << 8) | (phnum >> 8);
 
-        u_char *ptr_sh_table = NULL;
-        Elf32_Half sh_entry_count = ehdr->e_shnum;
-        Elf32_Half sh_entry_size = ehdr->e_shentsize;
-
-        // for each section header, output section number and section addr.
-        // hint: section number starts at 0.
-        for (Nr = 0; Nr < sh_entry_count; Nr++, shdr++)
+        for (Nr = 0; Nr < phnum; Nr++, phdr++)
         {
-                printf("%d:0x%x\n", Nr, shdr->sh_addr);
+                unsigned int filesize = phdr->p_filesz;
+                unsigned int memsize = phdr->p_memsz;
+                if (type == 2)
+                {
+                        filesize = reversal(filesize);
+                        memsize = reversal(memsize);
+                }
+                printf("%d:0x%x,0x%x\n", Nr, filesize, memsize);
         }
 
         return 0;
