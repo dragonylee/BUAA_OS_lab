@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 extern int readelf(u_char* binary, int size);
+
 /*
         overview: input a elf format file name from control line, call the readelf function
                   to parse it.
