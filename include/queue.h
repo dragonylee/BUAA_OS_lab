@@ -165,11 +165,16 @@
 #define LIST_INSERT_TAIL(head, elm, field)                        \
     do                                                            \
     {                                                             \
-        typeof(LIST_FIRST((head))) __pqr_r_ = LIST_FIRST((head)); \
-        while (__pqr_r_ != NULL)                                  \
-            __pqr_r_ = LIST_NEXT((__pqr_r_), field);              \
-        __pqr_r_ = (elm);                                         \
-        (elm)->field.le_prev = &__pqr_r_;                         \
+        if (LIST_FIRST((head)) == NULL)                           \
+            LIST_INSERT_HEAD(head, elm, field);                   \
+        else                                                      \
+        {                                                         \
+            typeof((elm)) __pqr_r_ = LIST_FIRST((head));          \
+            while (LIST_NEXT((__pqr_r_), field) != NULL)          \
+                __pqr_r_ = LIST_NEXT((__pqr_r_), field);          \
+            LIST_NEXT((__pqr_r_), field) = (elm);                 \
+            (elm)->field.le_prev = &LIST_NEXT((__pqr_r_), field); \
+        }                                                         \
     } while (0);
 
 /* finish your code here. */
