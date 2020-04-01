@@ -15,6 +15,8 @@ Pde *boot_pgdir; // include/mmu.h:typedef u_long Pde;
 struct Page *pages;
 static u_long freemem;
 
+int pages_is_alloc[4096];
+
 static struct Page_list page_free_list; /* Free list of physical pages */
 
 /* Overview:
@@ -225,16 +227,15 @@ void get_page_status(int pa)
     struct Page *ppage = pa2page((u_long)pa);
     int status;
 
-    if (KADDR(pa) < freemem)
+    if (ppage->pp_ref)
         status = 3;
-    else if (ppage->pp_ref)
+    else if (pages_is_alloc[ppage - pages])
         status = 2;
     else
         status = 1;
 
     printf("times:%d,page status:%d\n", time, status);
 }
-
 
 /*Overview:
         Allocates a physical page from free memory, and clear this page.
@@ -263,6 +264,8 @@ int page_alloc(struct Page **pp)
     ppage_temp = LIST_FIRST(&page_free_list);
     LIST_REMOVE(LIST_FIRST(&page_free_list), pp_link);
 
+    pages_is_alloc[ppage_temp - pages] = 1;
+
     /* Step 2: Initialize this page.
      * Hint: use `bzero`. */
     bzero(page2kva(ppage_temp), BY2PG);
@@ -284,6 +287,9 @@ void page_free(struct Page *pp)
     if (pp->pp_ref == 0)
     {
         LIST_INSERT_HEAD(&page_free_list, pp, pp_link);
+
+        pages_is_alloc[pp - pages] = 0;
+
         return;
     }
 
