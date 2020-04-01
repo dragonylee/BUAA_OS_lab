@@ -182,7 +182,7 @@ void mips_vm_init()
         are reference counted, and free pages are kept on a linked list.
   Hint:
         Use `LIST_INSERT_HEAD` to insert something to list.*/
-void page_init(void)
+void page_init(int mode)
 {
     /* Step 1: Initialize page_free_list. */
     /* Hint: Use macro `LIST_INIT` defined in include/queue.h. */
@@ -200,12 +200,41 @@ void page_init(void)
     }
 
     /* Step 4: Mark the other memory as free. */
-    for (i = npage - 1; page2kva(&pages[i]) >= freemem; i--)
+    if (mode)
     {
-        pages[i].pp_ref = 0;
-        LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+        for (i = npage - 1; page2kva(&pages[i]) >= freemem; i--)
+        {
+            pages[i].pp_ref = 0;
+            LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+        }
+    }
+    else
+    {
+        for (; i < npage; i++)
+        {
+            pages[i].pp_ref = 0;
+            LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+        }
     }
 }
+
+void get_page_status(int pa)
+{
+    static int time = 0;
+    time++;
+    struct Page *ppage = pa2page((u_long)pa);
+    int status;
+
+    if (KADDR(pa) < freemem)
+        status = 3;
+    else if (ppage->pp_ref)
+        status = 2;
+    else
+        status = 1;
+
+    printf("times:%d,page status:%d\n", time, status);
+}
+
 
 /*Overview:
         Allocates a physical page from free memory, and clear this page.
