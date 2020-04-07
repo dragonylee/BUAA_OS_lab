@@ -22,7 +22,7 @@ void mips_init()
 
 	panic("init.c:\tend of mips_init() reached!");
 }
-// for change
+// for chang
 void bcopy(const void *src, void *dst, size_t len)
 {
 	void *max;
