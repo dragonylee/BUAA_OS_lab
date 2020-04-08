@@ -87,7 +87,7 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
             error = 1;
         else if (e->env_id == curenv->env_id)
             error = 0;
-        else if (e->env_parent_id = curenv->env_id)
+        else if (e->env_parent_id == curenv->env_id)
             error = 0;
         if (error)
         {
@@ -151,14 +151,14 @@ static int env_setup_vm(struct Env *e)
         return r;
     }
     p->pp_ref++;
-    pgdir = page2kva(p);
+    pgdir = (Pde *)page2kva(p);
 
     /*Step 2: Zero pgdir's field before UTOP. */
-    r = PDX(UTOP) << 2;
-    bzero(pgdir, r);
+    r = PDX(UTOP);
+    bzero(pgdir, r << 2);
 
     /*Step 3: Copy kernel's boot_pgdir to pgdir. */
-    bcopy(boot_pgdir + r, pgdir + r, BY2PG - r);
+    bcopy(boot_pgdir + r, pgdir + r, BY2PG - (r << 2));
 
     /* Hint:
      *  The VA space of all envs is identical above UTOP
@@ -435,6 +435,16 @@ void env_run(struct Env *e)
      * (read <see mips run linux>, page 135-144)
      */
 }
+
+void print_env_details(struct Env *e)
+{
+    printf("ENV id: %d\tENV ENVX: %d\n", e->env_id, ENVX(e->env_id));
+    printf("ENV parent id: %d\n", e->env_parent_id);
+    printf("ENV status: %s\n", e->env_status == ENV_FREE ? "ENV_FREE" : (e->env_status == ENV_RUNNABLE ? "ENV_RUNNABLE" : "ENV_NOT_RUNNABLE"));
+    printf("ENV page dir: 0x%lX\n", e->env_pgdir);
+    printf("\n");
+}
+
 void env_check()
 {
     struct Env *temp, *pe, *pe0, *pe1, *pe2;
@@ -456,16 +466,10 @@ void env_check()
     fl = env_free_list;
     // now this env_free list must be empty!!!!
     LIST_INIT(&env_free_list);
-
     // should be no free memory
     assert(env_alloc(&pe, 0) == -E_NO_FREE_ENV);
-
     // recover env_free_list
     env_free_list = fl;
-
-    printf("pe0->env_id %d\n", pe0->env_id);
-    printf("pe1->env_id %d\n", pe1->env_id);
-    printf("pe2->env_id %d\n", pe2->env_id);
 
     assert(pe0->env_id == 2048);
     assert(pe1->env_id == 4097);
@@ -486,6 +490,7 @@ void env_check()
     temp = curenv;
     curenv = pe0;
     re = envid2env(pe2->env_id, &pe, 1);
+
     assert(pe == 0 && re == -E_BAD_ENV);
     curenv = temp;
     printf("envid2env() work well!\n");
@@ -494,6 +499,24 @@ void env_check()
     printf("pe1->env_pgdir %x\n", pe1->env_pgdir);
     printf("pe1->env_cr3 %x\n", pe1->env_cr3);
 
+    printf("pe2->env_pgdir %x\n", pe2->env_pgdir);
+    printf("pe2->env_cr3 %x\n", pe2->env_cr3);
+
+printf("\n-----------------pe2->env_pgdir-------------------\n");
+    int i;
+    for (i = 0; i < 1024; i++)
+        if (pe2->env_pgdir[i])
+            printf("%d:%x  ", i, pe2->env_pgdir[i]);
+    printf("\n-----------------------------------------\n");
+
+    printf("\n-----------------boot_pgdir-------------------\n");
+    for (i = 0; i < 1024; i++)
+        if (boot_pgdir[i])
+            printf("%d:%x  ", i, boot_pgdir[i]);
+    printf("\n-----------------------------------------\n");
+
+    printf("PDX(UTOP):  %d\n", PDX(UTOP));
+    printf("%x     %x\n", pe2->env_pgdir[PDX(UTOP)], boot_pgdir[PDX(UTOP)]);
     assert(pe2->env_pgdir[PDX(UTOP)] == boot_pgdir[PDX(UTOP)]);
     assert(pe2->env_pgdir[PDX(UTOP) - 1] == 0);
     printf("env_setup_vm passed!\n");
