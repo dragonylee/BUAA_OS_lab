@@ -154,11 +154,12 @@ static int env_setup_vm(struct Env *e)
     pgdir = (Pde *)page2kva(p);
 
     /*Step 2: Zero pgdir's field before UTOP. */
-    r = PDX(UTOP);
-    bzero(pgdir, r << 2);
+    for (i = 0; i < PDX(UTOP); i++)
+        pgdir[i] = 0;
 
     /*Step 3: Copy kernel's boot_pgdir to pgdir. */
-    bcopy(boot_pgdir + r, pgdir + r, BY2PG - (r << 2));
+    for (i = PDX(UTOP); i < (BY2PG >> 2); i++)
+        pgdir[i] = boot_pgdir[i];
 
     /* Hint:
      *  The VA space of all envs is identical above UTOP
@@ -502,7 +503,7 @@ void env_check()
     printf("pe2->env_pgdir %x\n", pe2->env_pgdir);
     printf("pe2->env_cr3 %x\n", pe2->env_cr3);
 
-printf("\n-----------------pe2->env_pgdir-------------------\n");
+    printf("\n-----------------pe2->env_pgdir-------------------\n");
     int i;
     for (i = 0; i < 1024; i++)
         if (pe2->env_pgdir[i])
