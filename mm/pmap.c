@@ -203,7 +203,7 @@ void page_init(void)
     }
 
     /* Step 4: Mark the other memory as free. */
-    for (i = npage - 1; page2kva(&pages[i]) >= freemem; i--)
+    for (; i < npage; i++)
     {
         pages[i].pp_ref = 0;
         LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
