@@ -241,7 +241,7 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
                              u_char *bin, u_int32_t bin_size, void *user_data)
 {
     /*
-              va
+              va                               temp
               |<--------------  i  ------------>|
         |_____|___|__BY2PG__|__BY2PG__|__BY2PG__|_____|__|________|___|_____|
         offset|                                       |               |
@@ -265,36 +265,38 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
         page_insert(pgdir, p, ROUNDDOWN(va, BY2PG), 0);
         bcopy(bin, page2kva(p) + offset, BY2PG - offset);
     }
-    for (i = BY2PG - offset; i + BY2PG <= bin_size; i += BY2PG)
+    u_long temp = ROUND(va, BY2PG);
+    for (i = BY2PG - offset; i + BY2PG <= bin_size; i += BY2PG, temp += BY2PG)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, va + i, 0);
+        page_insert(pgdir, p, temp, 0);
         bcopy(bin + i, page2kva(p), BY2PG);
     }
     if (bin_size > i)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, va + i, 0);
+        page_insert(pgdir, p, temp, 0);
         bcopy(bin + i, page2kva(p), bin_size - i);
         i += BY2PG;
+        temp += BY2PG;
         bzero(page2kva(p) + BY2PG - (i - bin_size), i - bin_size);
     }
 
     /*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`. */
-    for (; i + BY2PG <= sgsize; i += BY2PG)
+    for (; i + BY2PG <= sgsize; i += BY2PG, temp += BY2PG)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, va + i, 0);
+        page_insert(pgdir, p, temp, 0);
         bzero(page2kva(p), BY2PG);
     }
     if (sgsize > i)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, va + i, 0);
+        page_insert(pgdir, p, temp, 0);
         bzero(page2kva(p), sgsize - i);
     }
     return 0;
@@ -483,16 +485,7 @@ void env_run(struct Env *e)
      * Hint: You should use GET_ENV_ASID there. Think why?
      * (read <see mips run linux>, page 135-144)
      */
-    env_pop_tf(&(curenv->env_tf), GET_ENV_ASID(e->env_id));
-}
-
-void print_env_details(struct Env *e)
-{
-    printf("ENV id: %d\tENV ENVX: %d\n", e->env_id, ENVX(e->env_id));
-    printf("ENV parent id: %d\n", e->env_parent_id);
-    printf("ENV status: %s\n", e->env_status == ENV_FREE ? "ENV_FREE" : (e->env_status == ENV_RUNNABLE ? "ENV_RUNNABLE" : "ENV_NOT_RUNNABLE"));
-    printf("ENV page dir: 0x%lX\n", e->env_pgdir);
-    printf("\n");
+    env_pop_tf(&(curenv->env_tf), GET_ENV_ASID(curenv->env_id));
 }
 
 void env_check()
