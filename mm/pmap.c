@@ -26,6 +26,7 @@ void mips_detect_memory()
      * (When use real computer, CMOS tells us how many kilobytes there are). */
     maxpa = basemem = (1 << 26);
     npage = basemem >> 12;
+    extmem = 0;
 
     // Step 2: Calculate corresponding npage value.
 
@@ -101,11 +102,11 @@ static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
     if ((*pgdir_entry & PTE_V) == 0 && create)
     {
         pgtable = alloc(BY2PG, BY2PG, 1);
-        *pgdir_entry = PADDR(pgtable) | PTE_V | PTE_R;
+        *pgdir_entry = PADDR(pgtable) | PTE_V;
     }
 
     /* Step 3: Get the page table entry for `va`, and return it. */
-    pgtable = KADDR(PTE_ADDR(*pgdir_entry));
+    pgtable = (Pte *)KADDR(PTE_ADDR(*pgdir_entry));
     pgtable_entry = pgtable + PTX(va);
 
     return pgtable_entry;
@@ -133,7 +134,7 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
     {
         va_temp = va + i;
         pgtable_entry = boot_pgdir_walk(pgdir, va_temp, 1);
-        *pgtable_entry = (pa + i) | perm | PTE_V;
+        *pgtable_entry = PTE_ADDR((pa + i)) | perm | PTE_V;
     }
 }
 
@@ -300,7 +301,7 @@ int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
         *pgdir_entry = page2pa(ppage) | PTE_R | PTE_V;
     }
 
-    pgtable = KADDR(PTE_ADDR(*pgdir_entry));
+    pgtable = (Pte *)KADDR(PTE_ADDR(*pgdir_entry));
 
     /* Step 3: Set the page table entry to `*ppte` as return value. */
     *ppte = pgtable + PTX(va);

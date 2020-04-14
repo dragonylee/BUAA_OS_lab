@@ -134,8 +134,7 @@ static int env_setup_vm(struct Env *e)
     /* Step 1: Allocate a page for the page directory
      * using a function you completed in the lab2 and add its pp_ref.
      * pgdir is the page directory of Env e, assign value for it. */
-    r = page_alloc(&p);
-    if (r < 0)
+    if ((r = page_alloc(&p)) < 0)
     {
         panic("env_setup_vm - page alloc error\n");
         return r;
@@ -241,35 +240,63 @@ int env_alloc(struct Env **new, u_int parent_id)
 static int load_icode_mapper(u_long va, u_int32_t sgsize,
                              u_char *bin, u_int32_t bin_size, void *user_data)
 {
+    /*
+              va
+              |<--------------  i  ------------>|
+        |_____|___|__BY2PG__|__BY2PG__|__BY2PG__|_____|__|________|___|_____|
+        offset|                                       |               |
+              |<---------- .text & .data ------------>|<---- .bss --->|
+              |<------------- bin_size -------------->|               |
+              |<---------------------- sgsize ----------------------->|
+    */
+
     struct Env *env = (struct Env *)user_data; // user_data is an env struct
     struct Page *p = NULL;
     u_long i;
     int r;
     u_long offset = va - ROUNDDOWN(va, BY2PG);
+    Pde *pgdir = env->env_pgdir;
 
     /*Step 1: load all content of bin into memory. */
-    for (i = 0; i < bin_size; i += BY2PG)
+    if (offset > 0)
     {
-        /* Hint: You should alloc a new page. */
-        u_long temp = ROUNDDOWN(va, BY2PG) + i;
-
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(env->env_pgdir, p, temp, 0);
+        page_insert(pgdir, p, ROUNDDOWN(va, BY2PG), PTE_R);
+        bcopy(bin, page2kva(p) + offset, BY2PG - offset);
     }
-    bcopy(bin, (char *)va, bin_size);
-    bzero((char *)ROUNDDOWN(va, BY2PG), offset);
-
-    /*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
-    * hint: variable `i` has the value of `bin_size` now! */
-    while (i < sgsize)
+    for (i = BY2PG - offset; i + BY2PG <= bin_size; i += BY2PG)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(env->env_pgdir, p, ROUNDDOWN(va, BY2PG) + i, 0);
+        page_insert(pgdir, p, va + i, PTE_R);
+        bcopy(bin + i, page2kva(p), BY2PG);
+    }
+    if (bin_size > i)
+    {
+        if ((r = page_alloc(&p)) < 0)
+            return r;
+        page_insert(pgdir, p, va + i, PTE_R);
+        bcopy(bin + i, page2kva(p), bin_size - i);
         i += BY2PG;
+        bzero(page2kva(p) + BY2PG - (i - bin_size), i - bin_size);
     }
-    bzero((char *)(va + bin_size), sgsize - bin_size);
+
+    /*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`. */
+    for (; i + BY2PG <= sgsize; i += BY2PG)
+    {
+        if ((r = page_alloc(&p)) < 0)
+            return r;
+        page_insert(pgdir, p, va + i, PTE_R);
+        bzero(page2kva(p), BY2PG);
+    }
+    if (sgsize > i)
+    {
+        if ((r = page_alloc(&p)) < 0)
+            return r;
+        page_insert(pgdir, p, va + i, PTE_R);
+        bzero(page2kva(p), sgsize - i);
+    }
     return 0;
 }
 /* Overview:
@@ -296,15 +323,16 @@ static void load_icode(struct Env *e, u_char *binary, u_int size)
     struct Page *p = NULL;
     u_long entry_point;
     u_long r;
-    u_long perm = 0;
+    u_long perm = PTE_V | PTE_R;
 
     /*Step 1: alloc a page. */
-    r = page_alloc(&p);
+    if ((r = page_alloc(&p)) < 0)
+        return;
 
     /*Step 2: Use appropriate perm to set initial stack for new Env. */
     /*Hint: Should the user-stack be writable? */
     if ((r = page_insert(e->env_pgdir, p, USTACKTOP - BY2PG, perm)) < 0)
-        return r;
+        return;
 
     /*Step 3:load the binary using elf loader. */
     load_elf(binary, size, &entry_point, (void *)e, load_icode_mapper);
@@ -488,10 +516,16 @@ void env_check()
     fl = env_free_list;
     // now this env_free list must be empty!!!!
     LIST_INIT(&env_free_list);
+
     // should be no free memory
     assert(env_alloc(&pe, 0) == -E_NO_FREE_ENV);
+
     // recover env_free_list
     env_free_list = fl;
+
+    printf("pe0->env_id %d\n", pe0->env_id);
+    printf("pe1->env_id %d\n", pe1->env_id);
+    printf("pe2->env_id %d\n", pe2->env_id);
 
     assert(pe0->env_id == 2048);
     assert(pe1->env_id == 4097);
@@ -512,7 +546,6 @@ void env_check()
     temp = curenv;
     curenv = pe0;
     re = envid2env(pe2->env_id, &pe, 1);
-
     assert(pe == 0 && re == -E_BAD_ENV);
     curenv = temp;
     printf("envid2env() work well!\n");
@@ -521,29 +554,11 @@ void env_check()
     printf("pe1->env_pgdir %x\n", pe1->env_pgdir);
     printf("pe1->env_cr3 %x\n", pe1->env_cr3);
 
-    printf("pe2->env_pgdir %x\n", pe2->env_pgdir);
-    printf("pe2->env_cr3 %x\n", pe2->env_cr3);
-
-    printf("\n-----------------pe2->env_pgdir-------------------\n");
-    int i;
-    for (i = 0; i < 1024; i++)
-        if (pe2->env_pgdir[i])
-            printf("%d:%x  ", i, pe2->env_pgdir[i]);
-    printf("\n-----------------------------------------\n");
-
-    printf("\n-----------------boot_pgdir-------------------\n");
-    for (i = 0; i < 1024; i++)
-        if (boot_pgdir[i])
-            printf("%d:%x  ", i, boot_pgdir[i]);
-    printf("\n-----------------------------------------\n");
-
-    printf("PDX(UTOP):  %d\n", PDX(UTOP));
-    printf("%x     %x\n", pe2->env_pgdir[PDX(UTOP)], boot_pgdir[PDX(UTOP)]);
     assert(pe2->env_pgdir[PDX(UTOP)] == boot_pgdir[PDX(UTOP)]);
     assert(pe2->env_pgdir[PDX(UTOP) - 1] == 0);
     printf("env_setup_vm passed!\n");
 
     assert(pe2->env_tf.cp0_status == 0x10001004);
     printf("pe2`s sp register %x\n", pe2->env_tf.regs[29]);
-    printf("env_check() succeeded!\n\n\n");
+    printf("env_check() succeeded!\n");
 }
