@@ -262,21 +262,21 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, ROUNDDOWN(va, BY2PG), PTE_R);
+        page_insert(pgdir, p, ROUNDDOWN(va, BY2PG), 0);
         bcopy(bin, page2kva(p) + offset, BY2PG - offset);
     }
     for (i = BY2PG - offset; i + BY2PG <= bin_size; i += BY2PG)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, va + i, PTE_R);
+        page_insert(pgdir, p, va + i, 0);
         bcopy(bin + i, page2kva(p), BY2PG);
     }
     if (bin_size > i)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, va + i, PTE_R);
+        page_insert(pgdir, p, va + i, 0);
         bcopy(bin + i, page2kva(p), bin_size - i);
         i += BY2PG;
         bzero(page2kva(p) + BY2PG - (i - bin_size), i - bin_size);
@@ -287,14 +287,14 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, va + i, PTE_R);
+        page_insert(pgdir, p, va + i, 0);
         bzero(page2kva(p), BY2PG);
     }
     if (sgsize > i)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, va + i, PTE_R);
+        page_insert(pgdir, p, va + i, 0);
         bzero(page2kva(p), sgsize - i);
     }
     return 0;
