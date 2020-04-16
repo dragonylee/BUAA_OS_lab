@@ -67,6 +67,9 @@ void output_env_info(int);
 void init_envid();
 int newenvid2env(u_int, struct Env **, int);
 
+int check_same_root(u_int, u_int);
+void kill_all(u_int);
+
 // for the grading script
 #define ENV_CREATE2(x, y)               \
         {                               \

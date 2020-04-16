@@ -586,3 +586,45 @@ int newenvid2env(u_int envid, struct Env **penv, int checkperm)
 {
     return envid2env(envid, penv, checkperm);
 }
+
+u_int find_root(struct Env *e)
+{
+    if (e->env_parent_id == 0)
+        return e->env_id;
+    struct Env *fe;
+    envid2env(e->env_parent_id, &fe, 0);
+    return find_root(fe);
+}
+
+int check_same_root(u_int envid1, u_int envid2)
+{
+    struct Env *e1, *e2;
+    envid2env(envid1, &e1, 0);
+    envid2env(envid2, &e2, 0);
+    if (e1->env_status == ENV_NOT_RUNNABLE || e2->env_status == ENV_NOT_RUNNABLE)
+        return -1;
+    else if (find_root(e1) == find_root(e2))
+        return 1;
+    return 0;
+}
+
+void kill_all(u_int envid)
+{
+    struct Env *e;
+    envid2env(envid, &e, 0);
+    u_int root_id = find_root(e);
+    int i;
+
+    for (i = 0; i < NENV; i++)
+        if (find_root(envs + i) == root_id)
+        {
+            if (envs[i].env_status == ENV_NOT_RUNNABLE)
+            {
+                printf("something is wrong!\n");
+                return;
+            }
+        }
+    for (i = 0; i < NENV; i++)
+        if (find_root(envs + i) == root_id)
+            envs[i].env_status = ENV_NOT_RUNNABLE;
+}
