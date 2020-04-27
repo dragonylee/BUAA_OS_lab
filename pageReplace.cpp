@@ -2,6 +2,8 @@
 #include "pageReplace.h"
 #define MAX_PHY_PAGE 64
 
+// change
+
 static int clock_chuo = 0;                   // 时间戳
 static char where[1050000];             // 记录某个虚拟页面所在的物理页框(+1)，与physic_memery互逆
 static int last_time[MAX_PHY_PAGE + 5]; // 记录每个物理页框最近一次访问的时间戳
