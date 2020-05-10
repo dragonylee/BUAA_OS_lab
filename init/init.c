@@ -74,3 +74,4 @@ void bzero(void *b, size_t len)
 		*(char *)b++ = 0;
 	}
 }
+
