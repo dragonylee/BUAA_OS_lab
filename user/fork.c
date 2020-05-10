@@ -4,7 +4,6 @@
 #include <mmu.h>
 #include <env.h>
 
-
 /* ----------------- help functions ---------------- */
 
 /* Overview:
@@ -23,8 +22,10 @@ void user_bcopy(const void *src, void *dst, size_t len)
 	max = dst + len;
 
 	// copy machine words while possible
-	if (((int)src % 4 == 0) && ((int)dst % 4 == 0)) {
-		while (dst + 3 < max) {
+	if (((int)src % 4 == 0) && ((int)dst % 4 == 0))
+	{
+		while (dst + 3 < max)
+		{
 			*(int *)dst = *(int *)src;
 			dst += 4;
 			src += 4;
@@ -32,7 +33,8 @@ void user_bcopy(const void *src, void *dst, size_t len)
 	}
 
 	// finish remaining 0-3 bytes
-	while (dst < max) {
+	while (dst < max)
+	{
 		*(char *)dst = *(char *)src;
 		dst += 1;
 		src += 1;
@@ -60,7 +62,8 @@ void user_bzero(void *v, u_int n)
 	p = v;
 	m = n;
 
-	while (--m >= 0) {
+	while (--m >= 0)
+	{
 		*p++ = 0;
 	}
 }
@@ -83,16 +86,26 @@ static void
 pgfault(u_int va)
 {
 	u_int *tmp;
-	//	writef("fork.c:pgfault():\t va:%x\n",va);
-    
-    //map the new page at a temporary place
+	//writef("fork.c:pgfault():\t va:%x\n",va);
+
+	tmp = (*vpt) + (va >> 12);
+	if (!(*tmp & PTE_COW))
+		user_panic("'va' is not a copy-on-write page\n");
+
+	//map the new page at a temporary place
+	tmp = USTACKTOP;
+	if (syscall_mem_alloc(0, tmp, PTE_V | PTE_R) < 0)
+		return;
 
 	//copy the content
-	
-    //map the page on the appropriate place
-	
-    //unmap the temporary place
-	
+	user_bcopy(ROUNDDOWN(va, BY2PG), tmp, BY2PG);
+
+	//map the page on the appropriate place
+	if (syscall_mem_map(0, tmp, 0, ROUNDDOWN(va, BY2PG), PTE_V | PTE_R) < 0)
+		return;
+
+	//unmap the temporary place
+	syscall_mem_unmap(0, tmp);
 }
 
 /* Overview:
@@ -118,6 +131,19 @@ duppage(u_int envid, u_int pn)
 	u_int addr;
 	u_int perm;
 
+	addr = (*vpt)[pn];
+	perm = addr & 0xFFF;
+	addr = pn * BY2PG;
+	if (!(perm & PTE_V))
+		return;
+	else if ((perm & PTE_R) && !(perm & PTE_LIBRARY))
+		perm |= PTE_COW;
+
+	if (syscall_mem_map(0, addr, envid, addr, perm) < 0)
+		return;
+	if (syscall_mem_map(0, addr, 0, addr, perm) < 0)
+		return;
+
 	//	user_panic("duppage not implemented");
 }
 
@@ -132,27 +158,49 @@ duppage(u_int envid, u_int pn)
  */
 /*** exercise 4.9 4.15***/
 extern void __asm_pgfault_handler(void);
-int
-fork(void)
+int fork(void)
 {
 	// Your code here.
 	u_int newenvid;
 	extern struct Env *envs;
 	extern struct Env *env;
 	u_int i;
+	int r;
 
+	//writef("fork begin\n");
 
 	//The parent installs pgfault using set_pgfault_handler
+	set_pgfault_handler(pgfault);
+	//writef("set_pgfault_handler\n");
+
+	newenvid = syscall_env_alloc();
+	//writef("syscall_env_alloc\n");
+	if (!newenvid)
+	{
+		// this is child
+		env = envs + ENVX(syscall_getenvid());
+	}
+	else
+	{
+		// this is father
+		for (i = 0; i < USTACKTOP; i += BY2PG)
+			if (((*vpd)[PDX(i)] & PTE_V))
+				duppage(newenvid, VPN(i));
+		if (syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V | PTE_R) < 0)
+			user_panic("error on syscall_mem_alloc in fork\n");
+		if (syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP) < 0)
+			user_panic("error on syscall_set_pgfault_handler in fork\n");
+		if (syscall_set_env_status(newenvid, ENV_RUNNABLE) < 0)
+			user_panic("error on syscall_set_env_status in fork\n");
+	}
 
 	//alloc a new alloc
-
 
 	return newenvid;
 }
 
 // Challenge!
-int
-sfork(void)
+int sfork(void)
 {
 	user_panic("sfork not implemented");
 	return -E_INVAL;

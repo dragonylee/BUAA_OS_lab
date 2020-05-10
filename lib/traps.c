@@ -13,7 +13,8 @@ void trap_init()
 {
     int i;
 
-    for (i = 0; i < 32; i++) {
+    for (i = 0; i < 32; i++)
+    {
         set_except_vector(i, handle_reserved);
     }
 
@@ -31,8 +32,8 @@ void *set_except_vector(int n, void *addr)
     return (void *)old_handler;
 }
 
-
-struct pgfault_trap_frame {
+struct pgfault_trap_frame
+{
     u_int fault_va;
     u_int err;
     u_int sp;
@@ -45,10 +46,8 @@ struct pgfault_trap_frame {
     u_int empty5;
 };
 
-
 /*** exercise 4.11 ***/
-void
-page_fault_handler(struct Trapframe *tf)
+void page_fault_handler(struct Trapframe *tf)
 {
     struct Trapframe PgTrapFrame;
     extern struct Env *curenv;
@@ -56,14 +55,18 @@ page_fault_handler(struct Trapframe *tf)
     bcopy(tf, &PgTrapFrame, sizeof(struct Trapframe));
 
     if (tf->regs[29] >= (curenv->env_xstacktop - BY2PG) &&
-        tf->regs[29] <= (curenv->env_xstacktop - 1)) {
-            tf->regs[29] = tf->regs[29] - sizeof(struct  Trapframe);
-            bcopy(&PgTrapFrame, (void *)tf->regs[29], sizeof(struct Trapframe));
-        } else {
-            tf->regs[29] = curenv->env_xstacktop - sizeof(struct  Trapframe);
-            bcopy(&PgTrapFrame,(void *)curenv->env_xstacktop - sizeof(struct  Trapframe),sizeof(struct Trapframe));
-        }
+        tf->regs[29] <= (curenv->env_xstacktop - 1))
+    {
+        tf->regs[29] = tf->regs[29] - sizeof(struct Trapframe);
+        bcopy(&PgTrapFrame, (void *)tf->regs[29], sizeof(struct Trapframe));
+    }
+    else
+    {
+        tf->regs[29] = curenv->env_xstacktop - sizeof(struct Trapframe);
+        bcopy(&PgTrapFrame, (void *)curenv->env_xstacktop - sizeof(struct Trapframe), sizeof(struct Trapframe));
+    }
     // TODO: Set EPC to a proper value in the trapframe
+    tf->cp0_epc = curenv->env_pgfault_handler;
 
     return;
 }

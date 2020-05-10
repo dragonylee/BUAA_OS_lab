@@ -80,7 +80,7 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
      *     or an immediate child of curenv.
      *     If not, error! */
     /*     Step 2: Make a check according to checkperm. */
-    if (checkperm && e != curenv && e->env_parent_id != curenv->env_id)
+    if (checkperm && envid != curenv->env_id && e->env_parent_id != curenv->env_id)
     {
         *penv = 0;
         return -E_BAD_ENV;
@@ -104,6 +104,8 @@ void env_init(void)
     int i;
     /*Step 1: Initial env_free_list. */
     LIST_INIT(&env_free_list);
+    LIST_INIT(&env_sched_list[0]);
+    LIST_INIT(&env_sched_list[1]);
 
     /*Step 2: Traverse the elements of 'envs' array,
      * set their status as free and insert them into the env_free_list.
@@ -191,6 +193,8 @@ int env_alloc(struct Env **new, u_int parent_id)
     int r;
     struct Env *e;
 
+    *new = NULL;
+
     /*Step 1: Get a new Env from env_free_list*/
     if (LIST_EMPTY(&env_free_list))
     {
@@ -240,15 +244,63 @@ int env_alloc(struct Env **new, u_int parent_id)
 static int load_icode_mapper(u_long va, u_int32_t sgsize,
                              u_char *bin, u_int32_t bin_size, void *user_data)
 {
-    /*
-              va                               temp
-              |<--------------  i  ------------>|
-        |_____|___|__BY2PG__|__BY2PG__|__BY2PG__|_____|__|________|___|_____|
-        offset|                                       |               |
-              |<---------- .text & .data ------------>|<---- .bss --->|
-              |<------------- bin_size -------------->|               |
-              |<---------------------- sgsize ----------------------->|
-    */
+    struct Env *env = (struct Env *)user_data; // user_data is an env struct
+    struct Page *p = NULL;
+    u_long i;
+    int r;
+    u_long offset = va - ROUNDDOWN(va, BY2PG);
+
+    //          va
+    //          |
+    //    |_____|___|__BY2PG__|__BY2PG__|__BY2PG__|_____|__|________|___|_____|
+    //    offset|                                       |               |
+    //          |<---------- .text & .data ------------>|<---- .bss --->|
+    //          |<------------- bin_size -------------->|               |
+    //          |<---------------------- sgsize ----------------------->|
+
+    /*Step 1: load all content of bin into memory. */
+    for (i = 0; i < bin_size; i += BY2PG)
+    {
+        if ((r = page_alloc(&p)) < 0)
+            return r;
+        if ((r = page_insert(env->env_pgdir, p, va + i - offset, PTE_R | PTE_V)) < 0)
+            return r;
+        if (!i) // left
+            bcopy(bin, page2kva(p) + offset, MIN((BY2PG - offset), bin_size));
+        else if (BY2PG <= bin_size - i + offset) // middle
+            bcopy(bin + i - offset, page2kva(p), BY2PG);
+        else // right
+            bcopy(bin + i - offset, page2kva(p), bin_size - i + offset);
+    }
+
+    /*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
+     * i has the value of `bin_size` now. */
+    for (; i < sgsize; i += BY2PG)
+    {
+        if ((r = page_alloc(&p)) < 0)
+            return r;
+        if ((r = page_insert(env->env_pgdir, p, va + i - offset, PTE_R | PTE_V)) < 0)
+            return r;
+    }
+
+    return 0;
+}
+
+/*
+this is wrong in lab4, leading to ^^^TOO LOW^^^.
+
+static int load_icode_mapper(u_long va, u_int32_t sgsize,
+                             u_char *bin, u_int32_t bin_size, void *user_data)
+{
+    
+    //          va                               temp
+    //          |<--------------  i  ------------>|
+    //    |_____|___|__BY2PG__|__BY2PG__|__BY2PG__|_____|__|________|___|_____|
+    //    offset|                                       |               |
+    //          |<---------- .text & .data ------------>|<---- .bss --->|
+    //          |<------------- bin_size -------------->|               |
+    //          |<---------------------- sgsize ----------------------->|
+    
 
     struct Env *env = (struct Env *)user_data; // user_data is an env struct
     struct Page *p = NULL;
@@ -257,12 +309,12 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
     u_long offset = va - ROUNDDOWN(va, BY2PG);
     Pde *pgdir = env->env_pgdir;
 
-    /*Step 1: load all content of bin into memory. */
+    //Step 1: load all content of bin into memory. 
     if (offset > 0)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, ROUNDDOWN(va, BY2PG), 0);
+        page_insert(pgdir, p, ROUNDDOWN(va, BY2PG), PTE_V | PTE_R);
         bcopy(bin, page2kva(p) + offset, BY2PG - offset);
     }
     u_long temp = ROUND(va, BY2PG);
@@ -270,37 +322,39 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, temp, 0);
+        page_insert(pgdir, p, temp, PTE_V | PTE_R);
         bcopy(bin + i, page2kva(p), BY2PG);
     }
     if (bin_size > i)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, temp, 0);
+        page_insert(pgdir, p, temp, PTE_V | PTE_R);
         bcopy(bin + i, page2kva(p), bin_size - i);
         i += BY2PG;
         temp += BY2PG;
         bzero(page2kva(p) + BY2PG - (i - bin_size), i - bin_size);
     }
 
-    /*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`. */
+    //Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`. 
     for (; i + BY2PG <= sgsize; i += BY2PG, temp += BY2PG)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, temp, 0);
+        page_insert(pgdir, p, temp, PTE_V | PTE_R);
         bzero(page2kva(p), BY2PG);
     }
     if (sgsize > i)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, temp, 0);
+        page_insert(pgdir, p, temp, PTE_V | PTE_R);
         bzero(page2kva(p), sgsize - i);
     }
     return 0;
 }
+*/
+
 /* Overview:
  *  Sets up the the initial stack and program binary for a user process.
  *  This function loads the complete binary image by using elf loader,
@@ -357,14 +411,17 @@ void env_create_priority(u_char *binary, int size, int priority)
 {
     struct Env *e;
     /*Step 1: Use env_alloc to alloc a new env. */
-    env_alloc(&e, 0);
+    if (env_alloc(&e, 0) < 0)
+        return;
 
     /*Step 2: assign priority to the new env. */
     e->env_pri = priority;
 
     /*Step 3: Use load_icode() to load the named elf binary,
       and insert it into env_sched_list using LIST_INSERT_HEAD. */
+    //printf("load_icode begin\n");
     load_icode(e, binary, size);
+    //printf("load_icode end\n");
     LIST_INSERT_HEAD(&env_sched_list[0], e, env_sched_link);
 }
 /* Overview:
@@ -376,8 +433,10 @@ void env_create_priority(u_char *binary, int size, int priority)
 /*** exercise 3.8 ***/
 void env_create(u_char *binary, int size)
 {
+    // printf("env create begin\n");
     /*Step 1: Use env_create_priority to alloc a new env with priority 1 */
     env_create_priority(binary, size, 1);
+    // printf("env create end\n");
 }
 
 /* Overview:
@@ -466,7 +525,7 @@ void env_run(struct Env *e)
     /* Hint: if there is an environment running, you should do
     *  switch the context and save the registers. You can imitate env_destroy() 's behaviors.*/
     struct Trapframe *old = (struct Trapframe *)(TIMESTACK - sizeof(struct Trapframe));
-    if (curenv != NULL && curenv != e)
+    if (curenv)
     {
         curenv->env_tf = *old;
         curenv->env_tf.pc = curenv->env_tf.cp0_epc;
@@ -476,8 +535,11 @@ void env_run(struct Env *e)
     curenv = e;
     curenv->env_status = ENV_RUNNABLE;
 
+    //printf("curenv pc: %x\n", curenv->env_tf.pc);
     /*Step 3: Use lcontext() to switch to its address space. */
+    //printf("env_run lcontext begin\n");
     lcontext(curenv->env_pgdir);
+    //printf("env_run lcontext end\n");
 
     /*Step 4: Use env_pop_tf() to restore the environment's
      * environment   registers and return to user mode.
@@ -485,7 +547,9 @@ void env_run(struct Env *e)
      * Hint: You should use GET_ENV_ASID there. Think why?
      * (read <see mips run linux>, page 135-144)
      */
+    //printf("env_run env_pop_tf begin\n");
     env_pop_tf(&(curenv->env_tf), GET_ENV_ASID(curenv->env_id));
+    //printf("env_run env_pop_tf end\n");
 }
 
 void env_check()

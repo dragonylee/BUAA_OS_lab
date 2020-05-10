@@ -235,7 +235,7 @@ int page_alloc(struct Page **pp)
     }
 
     ppage_temp = LIST_FIRST(&page_free_list);
-    LIST_REMOVE(LIST_FIRST(&page_free_list), pp_link);
+    LIST_REMOVE(ppage_temp, pp_link);
 
     /* Step 2: Initialize this page.
      * Hint: use `bzero`. */
@@ -297,7 +297,7 @@ int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
      * When creating new page table, maybe out of memory. */
     if ((*pgdir_entry & PTE_V) == 0 && create)
     {
-        if (page_alloc(&ppage) == -E_NO_MEM)
+        if (page_alloc(&ppage) < 0)
             return -E_NO_MEM;
         ppage->pp_ref = 1;
         *pgdir_entry = page2pa(ppage) | PTE_R | PTE_V;
@@ -350,7 +350,7 @@ int page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
     tlb_invalidate(pgdir, va);
 
     /* Step 3: Do check, re-get page table entry to validate the insertion. */
-    if (pgdir_walk(pgdir, va, 1, &pgtable_entry) == -E_NO_MEM)
+    if (pgdir_walk(pgdir, va, 1, &pgtable_entry) <0)
         return -E_NO_MEM;
 
     /* Step 3.1 Check if the page can be insert, if can’t return -E_NO_MEM */
