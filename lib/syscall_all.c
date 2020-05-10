@@ -416,7 +416,7 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	{
 		if ((r = sys_mem_map(sysno, curenv->env_id, srcva, envid, e->env_ipc_dstva, perm)) < 0)
 			return r;
-		e->env_ipc_perm = perm;
+		//e->env_ipc_perm = perm;
 	}
 
 	return 0;
