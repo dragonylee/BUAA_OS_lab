@@ -215,7 +215,7 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	// can't go from non-writable to writable
 	if ((perm & PTE_R) && !(*ppte & PTE_R))
 		return -E_INVAL;
-	if ((ret = page_insert(dstenv->env_pgdir, ppage, round_dstva, perm)) < 0)
+	if ((ret = page_insert(dstenv->env_pgdir, ppage, dstva, perm)) < 0)
 		return ret;
 
 	return 0;
@@ -300,10 +300,11 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	struct Env *env;
 	int ret;
 
-	if ((ret = envid2env(envid, &env, 0)) < 0)
-		return ret;
 	if (!(status == ENV_RUNNABLE || status == ENV_NOT_RUNNABLE || status == ENV_FREE))
 		return -E_INVAL;
+	if ((ret = envid2env(envid, &env, 0)) < 0)
+		return ret;
+
 	env->env_status = status;
 
 	/*
@@ -402,7 +403,7 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 		return -E_INVAL;
 	if ((r = envid2env(envid, &e, 0)) < 0)
 		return r;
-	if (!(e->env_ipc_recving))
+	if (e->env_ipc_recving != 1)
 		return -E_IPC_NOT_RECV;
 
 	e->env_ipc_recving = 0;
@@ -411,10 +412,11 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	e->env_status = ENV_RUNNABLE;
 	e->env_ipc_perm = perm;
 
-	if (srcva > 0)
+	if (srcva)
 	{
 		if ((r = sys_mem_map(sysno, curenv->env_id, srcva, envid, e->env_ipc_dstva, perm)) < 0)
 			return r;
+		e->env_ipc_perm = perm;
 	}
 
 	return 0;

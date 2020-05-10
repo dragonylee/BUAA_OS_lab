@@ -184,8 +184,8 @@ int fork(void)
 	{
 		// this is father
 		for (i = 0; i < USTACKTOP; i += BY2PG)
-			if (((*vpd)[PDX(i)] & PTE_V))
-				duppage(newenvid, VPN(i));
+			if (((*vpd)[i >> 22] & PTE_V))
+				duppage(newenvid, i >> 12);
 		if (syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V | PTE_R) < 0)
 			user_panic("error on syscall_mem_alloc in fork\n");
 		if (syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP) < 0)

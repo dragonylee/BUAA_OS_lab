@@ -43,8 +43,8 @@ void sched_yield(void)
             return;
         }
         LIST_REMOVE(e,env_sched_link);
-        LIST_INSERT_TAIL(&env_sched_list[point ^ 1], e, env_sched_link);
-        // LIST_INSERT_HEAD(&env_sched_list[point ^ 1], e, env_sched_link);
+        //LIST_INSERT_TAIL(&env_sched_list[point ^ 1], e, env_sched_link);
+        LIST_INSERT_HEAD(&env_sched_list[point ^ 1], e, env_sched_link);
     }
     
     // get next available env
@@ -55,8 +55,8 @@ void sched_yield(void)
         {
             e = LIST_FIRST(&env_sched_list[point]);
             LIST_REMOVE(e, env_sched_link);
-            LIST_INSERT_TAIL(&env_sched_list[point ^ 1], e, env_sched_link);
-            // LIST_INSERT_HEAD(&env_sched_list[point ^ 1], e, env_sched_link);
+            //LIST_INSERT_TAIL(&env_sched_list[point ^ 1], e, env_sched_link);
+            LIST_INSERT_HEAD(&env_sched_list[point ^ 1], e, env_sched_link);
         }
         if (LIST_EMPTY(&env_sched_list[point]))
         {
