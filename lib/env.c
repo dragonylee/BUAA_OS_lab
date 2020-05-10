@@ -80,7 +80,7 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
      *     or an immediate child of curenv.
      *     If not, error! */
     /*     Step 2: Make a check according to checkperm. */
-    if (checkperm && e != curenv && e->env_parent_id != curenv->env_id)
+    if (checkperm && envid != curenv->env_id && e->env_parent_id != curenv->env_id)
     {
         *penv = 0;
         return -E_BAD_ENV;
@@ -104,6 +104,8 @@ void env_init(void)
     int i;
     /*Step 1: Initial env_free_list. */
     LIST_INIT(&env_free_list);
+    LIST_INIT(&env_sched_list[0]);
+    LIST_INIT(&env_sched_list[1]);
 
     /*Step 2: Traverse the elements of 'envs' array,
      * set their status as free and insert them into the env_free_list.
@@ -191,6 +193,8 @@ int env_alloc(struct Env **new, u_int parent_id)
     int r;
     struct Env *e;
 
+    *new = NULL;
+
     /*Step 1: Get a new Env from env_free_list*/
     if (LIST_EMPTY(&env_free_list))
     {
@@ -262,7 +266,7 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, ROUNDDOWN(va, BY2PG), 0);
+        page_insert(pgdir, p, ROUNDDOWN(va, BY2PG), PTE_V | PTE_R);
         bcopy(bin, page2kva(p) + offset, BY2PG - offset);
     }
     u_long temp = ROUND(va, BY2PG);
@@ -270,14 +274,14 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, temp, 0);
+        page_insert(pgdir, p, temp, PTE_V | PTE_R);
         bcopy(bin + i, page2kva(p), BY2PG);
     }
     if (bin_size > i)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, temp, 0);
+        page_insert(pgdir, p, temp, PTE_V | PTE_R);
         bcopy(bin + i, page2kva(p), bin_size - i);
         i += BY2PG;
         temp += BY2PG;
@@ -289,14 +293,14 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, temp, 0);
+        page_insert(pgdir, p, temp, PTE_V | PTE_R);
         bzero(page2kva(p), BY2PG);
     }
     if (sgsize > i)
     {
         if ((r = page_alloc(&p)) < 0)
             return r;
-        page_insert(pgdir, p, temp, 0);
+        page_insert(pgdir, p, temp, PTE_V | PTE_R);
         bzero(page2kva(p), sgsize - i);
     }
     return 0;
@@ -357,7 +361,8 @@ void env_create_priority(u_char *binary, int size, int priority)
 {
     struct Env *e;
     /*Step 1: Use env_alloc to alloc a new env. */
-    env_alloc(&e, 0);
+    if (env_alloc(&e, 0) < 0)
+        return;
 
     /*Step 2: assign priority to the new env. */
     e->env_pri = priority;
@@ -376,8 +381,10 @@ void env_create_priority(u_char *binary, int size, int priority)
 /*** exercise 3.8 ***/
 void env_create(u_char *binary, int size)
 {
+    // printf("env create begin\n");
     /*Step 1: Use env_create_priority to alloc a new env with priority 1 */
     env_create_priority(binary, size, 1);
+    // printf("env create end\n");
 }
 
 /* Overview:
@@ -466,7 +473,7 @@ void env_run(struct Env *e)
     /* Hint: if there is an environment running, you should do
     *  switch the context and save the registers. You can imitate env_destroy() 's behaviors.*/
     struct Trapframe *old = (struct Trapframe *)(TIMESTACK - sizeof(struct Trapframe));
-    if (curenv != NULL && curenv != e)
+    if (curenv)
     {
         curenv->env_tf = *old;
         curenv->env_tf.pc = curenv->env_tf.cp0_epc;

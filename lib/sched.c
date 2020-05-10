@@ -16,7 +16,7 @@ void sched_yield(void)
 {
     static int count = 0; // remaining time slices of current env
     static int point = 0; // current env_sched_list index
-    struct Env *e = LIST_FIRST(&env_sched_list[point]);
+    struct Env *e = curenv;
 
     /*  hint:
      *  1. if (count==0), insert `e` into `env_sched_list[1-point]`
@@ -30,30 +30,40 @@ void sched_yield(void)
      *  functions or macros below may be used (not all):
      *  LIST_INSERT_TAIL, LIST_REMOVE, LIST_FIRST, LIST_EMPTY
      */
-    if (count)
+
+    count++;
+    // if there is still time remaining, env_run and return
+    if (e && e->env_status == ENV_RUNNABLE && e->env_pri > count)
     {
-        count--;
         env_run(e);
+        return;
     }
-    if (!count)
+    else if (e)
     {
         LIST_REMOVE(e, env_sched_link);
-        LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link);
+        LIST_INSERT_TAIL(&env_sched_list[point ^ 1], e, env_sched_link);
+        // LIST_INSERT_HEAD(&env_sched_list[point ^ 1], e, env_sched_link);
     }
-    if (LIST_EMPTY(&env_sched_list[point]))
+    // get next available env
+    while (1)
     {
-        point = 1 - point;
-    }
-    e = LIST_FIRST(&env_sched_list[point]);
-    while (e->env_status != ENV_RUNNABLE)
-    {
-        e = LIST_NEXT(e, env_sched_link);
-        if (e == NULL)
+        while (!LIST_EMPTY(&env_sched_list[point]) &&
+               LIST_FIRST(&env_sched_list[point])->env_status != ENV_RUNNABLE)
         {
-            point = 1 - point;
             e = LIST_FIRST(&env_sched_list[point]);
+            LIST_REMOVE(e, env_sched_link);
+            LIST_INSERT_TAIL(&env_sched_list[point ^ 1], e, env_sched_link);
+            // LIST_INSERT_HEAD(&env_sched_list[point ^ 1], e, env_sched_link);
         }
+        if (LIST_EMPTY(&env_sched_list[point]))
+        {
+            point ^= 1;
+            continue;
+        }
+        count = 0;
+        e = LIST_FIRST(&env_sched_list[point]);
+        break;
     }
-    count = e->env_pri - 1;
+
     env_run(e);
 }
