@@ -30,3 +30,4 @@ void umain()
 		writef("this is father: a:%d\n", a);
 	}
 }
+
