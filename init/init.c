@@ -8,6 +8,8 @@
 extern char aoutcode[];
 extern char boutcode[];
 
+// for lab5
+
 void mips_init()
 {
 	printf("init.c:\tmips_init() is called\n");
