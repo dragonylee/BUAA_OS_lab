@@ -6,8 +6,6 @@ void umain()
 	int a = 0;
 	int id = 0;
 
-	//writef("fktest begin\n");
-
 	if ((id = fork()) == 0) {
 		if ((id = fork()) == 0) {
 			a += 3;
@@ -30,4 +28,3 @@ void umain()
 		writef("this is father: a:%d\n", a);
 	}
 }
-
