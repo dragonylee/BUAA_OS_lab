@@ -8,11 +8,10 @@
 
 #define MAXFD 32
 #define FILEBASE 0x60000000
-#define FDTABLE (FILEBASE-PDMAP)
+#define FDTABLE (FILEBASE - PDMAP)
 
-#define INDEX2FD(i)	(FDTABLE+(i)*BY2PG)
-#define INDEX2DATA(i)	(FILEBASE+(i)*PDMAP)
-
+#define INDEX2FD(i) (FDTABLE + (i)*BY2PG)
+#define INDEX2DATA(i) (FILEBASE + (i)*PDMAP)
 
 // pre-declare for forward references
 struct Fd;
@@ -23,7 +22,8 @@ struct Dev;
 // It is used to read and write data from corresponding device.
 // We can use the five functions to handle data.
 // There are three devices in this OS: file, console and pipe.
-struct Dev {
+struct Dev
+{
 	int dev_id;
 	char *dev_name;
 	int (*dev_read)(struct Fd *, void *, u_int, u_int);
@@ -34,14 +34,16 @@ struct Dev {
 };
 
 // file descriptor
-struct Fd {
+struct Fd
+{
 	u_int fd_dev_id;
 	u_int fd_offset;
 	u_int fd_omode;
 };
 
 // State
-struct Stat {
+struct Stat
+{
 	char st_name[MAXNAMELEN];
 	u_int st_size;
 	u_int st_isdir;
@@ -49,7 +51,8 @@ struct Stat {
 };
 
 // file descriptor + file
-struct Filefd {
+struct Filefd
+{
 	struct Fd f_fd;
 	u_int f_fileid;
 	struct File f_file;
@@ -60,11 +63,9 @@ int fd_lookup(int fdnum, struct Fd **fd);
 u_int fd2data(struct Fd *);
 int fd2num(struct Fd *);
 int dev_lookup(int dev_id, struct Dev **dev);
-int
-num2fd(int fd);
+int num2fd(int fd);
 extern struct Dev devcons;
 extern struct Dev devfile;
 extern struct Dev devpipe;
-
 
 #endif

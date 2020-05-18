@@ -3,21 +3,19 @@
 #include <mmu.h>
 #include <env.h>
 
-
 static struct Dev *devtab[] = {
 	&devfile,
 	&devcons,
 	&devpipe,
-	0
-};
+	0};
 
-int
-dev_lookup(int dev_id, struct Dev **dev)
+int dev_lookup(int dev_id, struct Dev **dev)
 {
 	int i;
 
 	for (i = 0; devtab[i]; i++)
-		if (devtab[i]->dev_id == dev_id) {
+		if (devtab[i]->dev_id == dev_id)
+		{
 			*dev = devtab[i];
 			return 0;
 		}
@@ -26,8 +24,7 @@ dev_lookup(int dev_id, struct Dev **dev)
 	return -E_INVAL;
 }
 
-int
-fd_alloc(struct Fd **fd)
+int fd_alloc(struct Fd **fd)
 {
 	// Find the smallest i from 0 to MAXFD-1 that doesn't have
 	// its fd page mapped.  Set *fd to the fd page virtual address.
@@ -39,15 +36,18 @@ fd_alloc(struct Fd **fd)
 	u_int va;
 	u_int fdno;
 
-	for (fdno = 0; fdno < MAXFD - 1; fdno++) {
+	for (fdno = 0; fdno < MAXFD - 1; fdno++)
+	{
 		va = INDEX2FD(fdno);
 
-		if (((* vpd)[va / PDMAP] & PTE_V) == 0) {
+		if (((*vpd)[va / PDMAP] & PTE_V) == 0)
+		{
 			*fd = (struct Fd *)va;
 			return 0;
 		}
 
-		if (((* vpt)[va / BY2PG] & PTE_V) == 0) {	//the fd is not used
+		if (((*vpt)[va / BY2PG] & PTE_V) == 0)
+		{ //the fd is not used
 			*fd = (struct Fd *)va;
 			return 0;
 		}
@@ -56,26 +56,26 @@ fd_alloc(struct Fd **fd)
 	return -E_MAX_OPEN;
 }
 
-void
-fd_close(struct Fd *fd)
+void fd_close(struct Fd *fd)
 {
 	syscall_mem_unmap(0, (u_int)fd);
 }
 
-int
-fd_lookup(int fdnum, struct Fd **fd)
+int fd_lookup(int fdnum, struct Fd **fd)
 {
 	// Check that fdnum is in range and mapped.  If not, return -E_INVAL.
 	// Set *fd to the fd page virtual address.  Return 0.
 	u_int va;
 
-	if (fdnum >= MAXFD) {
+	if (fdnum >= MAXFD)
+	{
 		return -E_INVAL;
 	}
 
 	va = INDEX2FD(fdnum);
 
-	if (((* vpt)[va / BY2PG] & PTE_V) != 0) {	//the fd is used
+	if (((*vpt)[va / BY2PG] & PTE_V) != 0)
+	{ //the fd is used
 		*fd = (struct Fd *)va;
 		return 0;
 	}
@@ -83,33 +83,29 @@ fd_lookup(int fdnum, struct Fd **fd)
 	return -E_INVAL;
 }
 
-u_int
-fd2data(struct Fd *fd)
+u_int fd2data(struct Fd *fd)
 {
 	return INDEX2DATA(fd2num(fd));
 }
 
-int
-fd2num(struct Fd *fd)
+int fd2num(struct Fd *fd)
 {
 	return ((u_int)fd - FDTABLE) / BY2PG;
 }
 
-int
-num2fd(int fd)
+int num2fd(int fd)
 {
 	return fd * BY2PG + FDTABLE;
 }
 
-int
-close(int fdnum)
+int close(int fdnum)
 {
 	int r;
 	struct Dev *dev;
 	struct Fd *fd;
 
-	if ((r = fd_lookup(fdnum, &fd)) < 0
-		||  (r = dev_lookup(fd->fd_dev_id, &dev)) < 0) {
+	if ((r = fd_lookup(fdnum, &fd)) < 0 || (r = dev_lookup(fd->fd_dev_id, &dev)) < 0)
+	{
 		return r;
 	}
 
@@ -118,24 +114,24 @@ close(int fdnum)
 	return r;
 }
 
-void
-close_all(void)
+void close_all(void)
 {
 	int i;
 
-	for (i = 0; i < MAXFD; i++) {
+	for (i = 0; i < MAXFD; i++)
+	{
 		close(i);
 	}
 }
 
-int
-dup(int oldfdnum, int newfdnum)
+int dup(int oldfdnum, int newfdnum)
 {
 	int i, r;
 	u_int ova, nva, pte;
 	struct Fd *oldfd, *newfd;
 
-	if ((r = fd_lookup(oldfdnum, &oldfd)) < 0) {
+	if ((r = fd_lookup(oldfdnum, &oldfd)) < 0)
+	{
 		return r;
 	}
 
@@ -145,18 +141,23 @@ dup(int oldfdnum, int newfdnum)
 	nva = fd2data(newfd);
 
 	if ((r = syscall_mem_map(0, (u_int)oldfd, 0, (u_int)newfd,
-							 ((*vpt)[VPN(oldfd)]) & (PTE_V | PTE_R | PTE_LIBRARY))) < 0) {
+							 ((*vpt)[VPN(oldfd)]) & (PTE_V | PTE_R | PTE_LIBRARY))) < 0)
+	{
 		goto err;
 	}
 
-	if ((* vpd)[PDX(ova)]) {
-		for (i = 0; i < PDMAP; i += BY2PG) {
-			pte = (* vpt)[VPN(ova + i)];
+	if ((*vpd)[PDX(ova)])
+	{
+		for (i = 0; i < PDMAP; i += BY2PG)
+		{
+			pte = (*vpt)[VPN(ova + i)];
 
-			if (pte & PTE_V) {
+			if (pte & PTE_V)
+			{
 				// should be no error here -- pd is already allocated
 				if ((r = syscall_mem_map(0, ova + i, 0, nva + i,
-										 pte & (PTE_V | PTE_R | PTE_LIBRARY))) < 0) {
+										 pte & (PTE_V | PTE_R | PTE_LIBRARY))) < 0)
+				{
 					goto err;
 				}
 			}
@@ -168,7 +169,8 @@ dup(int oldfdnum, int newfdnum)
 err:
 	syscall_mem_unmap(0, (u_int)newfd);
 
-	for (i = 0; i < PDMAP; i += BY2PG) {
+	for (i = 0; i < PDMAP; i += BY2PG)
+	{
 		syscall_mem_unmap(0, nva + i);
 	}
 
@@ -182,8 +184,7 @@ err:
 //	Update seek position.
 //	Return the number of bytes read successfully.
 //		< 0 on error
-int
-read(int fdnum, void *buf, u_int n)
+int read(int fdnum, void *buf, u_int n)
 {
 	int r;
 	struct Dev *dev;
@@ -191,29 +192,46 @@ read(int fdnum, void *buf, u_int n)
 
 	// Similar to 'write' function.
 	// Step 1: Get fd and dev.
+	if ((r = fd_lookup(fdnum, &fd)) < 0 || (r = dev_lookup(fd->fd_dev_id, &dev)) < 0)
+	{
+		return r;
+	}
 
 	// Step 2: Check open mode.
+	if ((fd->fd_omode & O_ACCMODE) == O_WRONLY)
+	{
+		writef("[%08x] read %d -- bad mode\n", env->env_id, fdnum);
+		return -E_INVAL;
+	}
 
 	// Step 3: Read starting from seek position.
+	r = (*dev->dev_read)(fd, buf, n, fd->fd_offset);
 
 	// Step 4: Update seek position and set '\0' at the end of buf.
+	if (r > 0)
+	{
+		fd->fd_offset += r;
+		((char *)buf)[r] = 0;
+	}
 
 	return r;
 }
 
-int
-readn(int fdnum, void *buf, u_int n)
+int readn(int fdnum, void *buf, u_int n)
 {
 	int m, tot;
 
-	for (tot = 0; tot < n; tot += m) {
+	for (tot = 0; tot < n; tot += m)
+	{
 		m = read(fdnum, (char *)buf + tot, n - tot);
 
-		if (m < 0) {
+		if (m < 0)
+		{
 			return m;
 		}
 
-		if (m == 0) {
+		if (m == 0)
+		{
 			break;
 		}
 	}
@@ -221,42 +239,44 @@ readn(int fdnum, void *buf, u_int n)
 	return tot;
 }
 
-int
-write(int fdnum, const void *buf, u_int n)
+int write(int fdnum, const void *buf, u_int n)
 {
 	int r;
 	struct Dev *dev;
 	struct Fd *fd;
 
-	if ((r = fd_lookup(fdnum, &fd)) < 0
-		||  (r = dev_lookup(fd->fd_dev_id, &dev)) < 0) {
+	if ((r = fd_lookup(fdnum, &fd)) < 0 || (r = dev_lookup(fd->fd_dev_id, &dev)) < 0)
+	{
 		return r;
 	}
 
-	if ((fd->fd_omode & O_ACCMODE) == O_RDONLY) {
+	if ((fd->fd_omode & O_ACCMODE) == O_RDONLY)
+	{
 		writef("[%08x] write %d -- bad mode\n", env->env_id, fdnum);
 		return -E_INVAL;
 	}
 
-	if (debug) writef("write %d %p %d via dev %s\n",
-						  fdnum, buf, n, dev->dev_name);
+	if (debug)
+		writef("write %d %p %d via dev %s\n",
+			   fdnum, buf, n, dev->dev_name);
 
 	r = (*dev->dev_write)(fd, buf, n, fd->fd_offset);
 
-	if (r > 0) {
+	if (r > 0)
+	{
 		fd->fd_offset += r;
 	}
 
 	return r;
 }
 
-int
-seek(int fdnum, u_int offset)
+int seek(int fdnum, u_int offset)
 {
 	int r;
 	struct Fd *fd;
 
-	if ((r = fd_lookup(fdnum, &fd)) < 0) {
+	if ((r = fd_lookup(fdnum, &fd)) < 0)
+	{
 		return r;
 	}
 
@@ -264,15 +284,14 @@ seek(int fdnum, u_int offset)
 	return 0;
 }
 
-
 int fstat(int fdnum, struct Stat *stat)
 {
 	int r;
 	struct Dev *dev;
 	struct Fd *fd;
 
-	if ((r = fd_lookup(fdnum, &fd)) < 0
-		||  (r = dev_lookup(fd->fd_dev_id, &dev)) < 0) {
+	if ((r = fd_lookup(fdnum, &fd)) < 0 || (r = dev_lookup(fd->fd_dev_id, &dev)) < 0)
+	{
 		return r;
 	}
 
@@ -283,12 +302,12 @@ int fstat(int fdnum, struct Stat *stat)
 	return (*dev->dev_stat)(fd, stat);
 }
 
-int
-stat(const char *path, struct Stat *stat)
+int stat(const char *path, struct Stat *stat)
 {
 	int fd, r;
 
-	if ((fd = open(path, O_RDONLY)) < 0) {
+	if ((fd = open(path, O_RDONLY)) < 0)
+	{
 		return fd;
 	}
 
@@ -296,4 +315,3 @@ stat(const char *path, struct Stat *stat)
 	close(fd);
 	return r;
 }
-
