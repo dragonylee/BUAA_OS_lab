@@ -451,11 +451,11 @@ int sys_write_dev(int sysno, u_int va, u_int dev, u_int len)
 {
 	// Your code here
 	int flag = 0;
-	if (dev >= 0x10000000 && dev + len < 0x10000020)
+	if (dev >= 0x10000000 && dev + len <= 0x10000020)
 		flag = 1;
-	else if (dev >= 0x13000000 && dev + len < 0x13004200)
+	else if (dev >= 0x13000000 && dev + len <= 0x13004200)
 		flag = 1;
-	else if (dev >= 0x15000000 && dev + len < 0x15000200)
+	else if (dev >= 0x15000000 && dev + len <= 0x15000200)
 		flag = 1;
 	if (!flag)
 		return -E_INVAL;
@@ -482,11 +482,11 @@ int sys_read_dev(int sysno, u_int va, u_int dev, u_int len)
 {
 	// Your code here
 	int flag = 0;
-	if (dev >= 0x10000000 && dev + len < 0x10000020)
+	if (dev >= 0x10000000 && dev + len <= 0x10000020)
 		flag = 1;
-	else if (dev >= 0x13000000 && dev + len < 0x13004200)
+	else if (dev >= 0x13000000 && dev + len <= 0x13004200)
 		flag = 1;
-	else if (dev >= 0x15000000 && dev + len < 0x15000200)
+	else if (dev >= 0x15000000 && dev + len <= 0x15000200)
 		flag = 1;
 	if (!flag)
 		return -E_INVAL;
