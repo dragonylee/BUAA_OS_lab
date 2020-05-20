@@ -36,7 +36,7 @@ void ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
 	int offset_begin = secno * IDE_BUFFER_SIZE;
 	int offset_end = offset_begin + nsecs * IDE_BUFFER_SIZE;
 	int offset = 0;
-	int temp = 0;
+	u_int temp = 0;
 	int ret = 0;
 
 	while (offset_begin + offset < offset_end)
