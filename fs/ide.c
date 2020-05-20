@@ -45,13 +45,13 @@ void ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
 		// error occurred, then panic.
 		ret = 0;
 		temp = offset_begin + offset;
-		syscall_write_dev(&diskno, IDE_ID_ADDR, sizeof(u_int));
-		syscall_write_dev(&temp, IDE_BEGIN_ADDR, sizeof(u_int));
-		syscall_write_dev(&ret, IDE_OP_ADDR, sizeof(u_int));
-		syscall_read_dev(&ret, IDE_STATUS_ADDR, sizeof(u_int));
+		syscall_write_dev((u_int)&diskno, IDE_ID_ADDR, sizeof(u_int));
+		syscall_write_dev((u_int)&temp, IDE_BEGIN_ADDR, sizeof(u_int));
+		syscall_write_dev((u_int)&ret, IDE_OP_ADDR, sizeof(u_int));
+		syscall_read_dev((u_int)&ret, IDE_STATUS_ADDR, sizeof(u_int));
 		if(!ret)
 			user_panic("ide_read error\n");
-		syscall_read_dev(dst + offset, IDE_BUFFER_ADDR, IDE_BUFFER_SIZE);
+		syscall_read_dev((u_int)(dst + offset), IDE_BUFFER_ADDR, IDE_BUFFER_SIZE);
 		offset += IDE_BUFFER_SIZE;
 	}
 }
@@ -93,9 +93,9 @@ void ide_write(u_int diskno, u_int secno, void *src, u_int nsecs)
 	{
 		ret = 1;
 		temp = offset_begin + offset;
-		syscall_write_dev(src + offset, IDE_BUFFER_ADDR, IDE_BUFFER_SIZE);
 		syscall_write_dev(&diskno, IDE_ID_ADDR, sizeof(u_int));
 		syscall_write_dev(&temp, IDE_BEGIN_ADDR, sizeof(u_int));
+		syscall_write_dev(src + offset, IDE_BUFFER_ADDR, IDE_BUFFER_SIZE);
 		syscall_write_dev(&ret, IDE_OP_ADDR, sizeof(u_int));
 		syscall_read_dev(&ret, IDE_STATUS_ADDR, sizeof(u_int));
 		if(!ret)
