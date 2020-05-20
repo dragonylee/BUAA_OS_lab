@@ -244,7 +244,7 @@ struct File *create_file(struct File *dirf)
     if (nblk <= NDIRECT)
         bno = dirf->f_direct[nblk - 1];
     else
-        bno = ((uint32_t *)(disk[dirf->f_indirect].data))[nblk];
+        bno = ((uint32_t *)(disk[dirf->f_indirect].data))[nblk - 1];
 
     // Step2: Find an unused pointer
     dirblk = (struct File *)disk[bno].data;
@@ -293,7 +293,6 @@ void write_file(struct File *dirf, const char *path)
 void write_directory(struct File *dirf, char *name)
 {
     // Your code here
-    
 }
 
 int main(int argc, char **argv)
@@ -330,3 +329,4 @@ Usage: fsformat gxemul/fs.img files...\n\
 
     return 0;
 }
+

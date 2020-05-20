@@ -14,7 +14,7 @@ int block_is_free(u_int);
 //	than disk's nblocks, panic.
 u_int diskaddr(u_int blockno)
 {
-	if (super && blockno >= super->s_nblocks)
+	if (blockno >= DISKMAX / BY2BLK)
 		user_panic("diskaddr error, blockno too large\n");
 	return DISKMAP + blockno * BY2BLK;
 }
@@ -573,7 +573,7 @@ int dir_lookup(struct File *dir, char *name, struct File **file)
 			if (strcmp(f->f_name, name) == 0)
 			{
 				*file = f;
-				f->f_dir = dir;
+				(*file)->f_dir = dir;
 				return 0;
 			}
 		}
