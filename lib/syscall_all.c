@@ -492,4 +492,3 @@ int sys_read_dev(int sysno, u_int va, u_int dev, u_int len)
 		return -E_INVAL;
 	bcopy(dev + 0xA0000000, va, len);
 }
-
