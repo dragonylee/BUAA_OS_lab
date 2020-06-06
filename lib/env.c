@@ -397,6 +397,14 @@ static void load_icode(struct Env *e, u_char *binary, u_int size)
     e->env_tf.pc = entry_point;
 }
 
+void load_icode_shell(struct Env *e, u_char *binary, u_int size)
+{
+    u_int entry_point;
+    if (load_elf(binary, size, &entry_point, e, load_icode_mapper) < 0)
+        return;
+    e->env_tf.pc = entry_point;
+}
+
 /* Overview:
  *  Allocates a new env with env_alloc, loads the named elf binary into
  *  it with load_icode and then set its priority value. This function is
