@@ -165,20 +165,21 @@ int spawn(char *prog, char **argv)
 	//        Maybe you can review lab3
 	if ((r = init_stack(child_envid, argv, &esp)) < 0)
 		return r;
-/*
+
 	int fdes = num2fd(fd);
 	size = ((struct Filefd *)fdes)->f_file.f_size;
 	blk = fd2data(fdes);
 	if ((r = syscall_load_icode(child_envid, blk, size)) < 0)
 		return r;
-*/
-			
+
+	/*		
 	// this can't zero bss section
 	if ((r = usr_load_elf(fd, ph, child_envid)) < 0)
 	{
 		writef("usr_load_elf error in spawn\n");
 		return r;
 	}
+	*/
 	
 	// maybe ph is useless here
 	// Your code ends here
