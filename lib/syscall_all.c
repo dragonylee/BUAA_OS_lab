@@ -460,6 +460,7 @@ int sys_write_dev(int sysno, u_int va, u_int dev, u_int len)
 	if (!flag)
 		return -E_INVAL;
 	bcopy(va, dev + 0xA0000000, len);
+	return 0;
 }
 
 /* Overview:
@@ -491,6 +492,7 @@ int sys_read_dev(int sysno, u_int va, u_int dev, u_int len)
 	if (!flag)
 		return -E_INVAL;
 	bcopy(dev + 0xA0000000, va, len);
+	return 0;
 }
 
 int sys_load_icode(int sysno, u_int envid, u_char *binary, u_int size)
