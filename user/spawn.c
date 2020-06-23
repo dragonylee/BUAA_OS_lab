@@ -109,7 +109,7 @@ int usr_load_elf(int fd, Elf32_Phdr *ph, int child_envid)
 	u_int *blk;
 	int i, r, j;
 
-	for (i = 0x1000, j = 0; i < size; i += BY2PG, j += BY2PG)
+	for (i = 0x10000, j = 0; i < size; i += BY2PG, j += BY2PG)
 	{
 		if ((r = read_map(fd, i, &blk)) < 0)
 		{
@@ -165,21 +165,21 @@ int spawn(char *prog, char **argv)
 	//        Maybe you can review lab3
 	if ((r = init_stack(child_envid, argv, &esp)) < 0)
 		return r;
-
+/*
 	int fdes = num2fd(fd);
 	size = ((struct Filefd *)fdes)->f_file.f_size;
 	blk = fd2data(fdes);
 	if ((r = syscall_load_icode(child_envid, blk, size)) < 0)
 		return r;
-
-	/*		
+*/
+			
 	// this can't zero bss section
 	if ((r = usr_load_elf(fd, ph, child_envid)) < 0)
 	{
 		writef("usr_load_elf error in spawn\n");
 		return r;
 	}
-	*/
+	
 	// maybe ph is useless here
 	// Your code ends here
 
