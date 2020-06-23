@@ -8,7 +8,7 @@
 extern char aoutcode[];
 extern char boutcode[];
 
-//
+////
 
 void mips_init()
 {
